@@ -1,12 +1,4 @@
 .env
 
 
-DB_HOST=localhost
-DB_NAME=LMS
-DB_USER=postgres
-DB_PASS=alen
-DB_PORT=5432
-DB_DIALECT=postgres
-JWT_SECRET=asdjkahuirhq7972r3hbdfboishdfnbshjfbqweouygri34brbweorihb32h4bw8oewfhwefbweh
-EMAIL_PASS = pvtc azas iuwc qslp
-EMAIL_USER = bitwisitech@gmail.com
+
