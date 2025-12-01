@@ -27,6 +27,7 @@ const TeacherClass = sequelize.define("teacher_class", {
 });
 
 
+
 TeacherClass.belongsTo(Class, { foreignKey: "teacher_id" })
 Class.hasMany(TeacherClass, { foreignKey: "teacher_id" })
 

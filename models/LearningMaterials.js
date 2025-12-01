@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 const DB = require("../config/db");
-
 const Teacher = require("./Teacher");
 const Class = require("./Class");
 
@@ -15,7 +14,7 @@ const LearningMaterials = DB.define("learning_material", {
     },
     class_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        // allowNull: false,
         references: {
             model: Class,
             key: "id"
@@ -33,25 +32,8 @@ const LearningMaterials = DB.define("learning_material", {
     }
 });
 
-LearningMaterials.belongsTo(Teacher, {
-    foreignKey: "teacher_id",
-    as: "Teacher"
-});
-
-LearningMaterials.belongsTo(Class, {
-    foreignKey: "class_id",
-    as: "Class"
-});
-
-Teacher.hasMany(LearningMaterials, {
-    foreignKey: "teacher_id",
-    as: "LearningMaterials"
-});
-
-Class.hasMany(LearningMaterials, {
-    foreignKey: "class_id",
-    as: "LearningMaterials"
-});
+LearningMaterials.belongsTo(Class, { foreignKey: "class_id" })
+Class.hasMany(LearningMaterials, { foreignKey: "class_id" })
 
 
 module.exports = LearningMaterials;

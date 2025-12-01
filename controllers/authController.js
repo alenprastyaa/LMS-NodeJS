@@ -4,10 +4,11 @@ const jwt = require("jsonwebtoken");
 const { User, Role, Students } = require("../models"); // Import Students model
 const Class = require("../models/Class");
 require("dotenv").config();
+const { Op } = require("sequelize");
 
 const register = async (req, res) => {
     try {
-        const { username, password, email, role_id, status } = req.body;
+        const { username, password, email, role_id, status, full_name } = req.body;
         if (!username || !password || !email || !role_id) {
             return res.status(400).json({ success: false, message: "username, password, email and role are required" });
         }
@@ -22,7 +23,8 @@ const register = async (req, res) => {
             password: hashed,
             email,
             role_id,
-            status
+            status,
+            full_name
         });
 
         const { password: _p, ...safe } = user.toJSON();
@@ -50,9 +52,9 @@ const login = async (req, res) => {
                     attributes: ["id", "role_name"]
                 },
                 {
-                    model: Students, // Eager load Students model
+                    model: Students,
                     attributes: ["class_id"],
-                    required: false // Make it optional, so users without student record can still log in
+                    required: false
                 }
             ]
         });
@@ -110,22 +112,40 @@ const login = async (req, res) => {
 };
 
 
+
+
 const GetUser = async (req, res) => {
     try {
-        const users = await User.findAll({
+        const {
+            page = 1,
+            limit = 10,
+            search = ""
+        } = req.query;
+
+        const offset = (page - 1) * limit;
+        const where = {};
+        if (search) {
+            where[Op.or] = [
+                { username: { [Op.like]: `%${search}%` } },
+                { email: { [Op.like]: `%${search}%` } },
+                { full_name: { [Op.like]: `%${search}%` } },
+                { "$role.role_name$": { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const { rows, count } = await User.findAndCountAll({
+            where,
             include: {
                 model: Role,
                 attributes: ["role_name"]
-            }
+            },
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [["id", "DESC"]],
+            distinct: true
         });
 
-        if (!users || users.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Belum ada User terdaftar"
-            });
-        }
-        const result = users.map(u => ({
+        const result = rows.map(u => ({
             id: u.id,
             username: u.username,
             email: u.email,
@@ -136,7 +156,13 @@ const GetUser = async (req, res) => {
 
         return res.json({
             success: true,
-            data: result
+            data: result,
+            pagination: {
+                total: count,
+                page: Number(page),
+                limit: Number(limit),
+                total_pages: Math.ceil(count / limit)
+            }
         });
 
     } catch (error) {
@@ -145,19 +171,19 @@ const GetUser = async (req, res) => {
             message: error.message
         });
     }
-}
+};
+
 
 
 const GetMyData = async (req, res) => {
     try {
         const userId = req.user.id;
-
+        const { role } = req.user
         const user = await User.findOne({
             where: { id: userId },
             attributes: { exclude: ["password"] },
 
         });
-
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -167,7 +193,11 @@ const GetMyData = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            data: user
+            data: {
+                user,
+                role: role.role_name,
+
+            },
         });
 
     } catch (error) {

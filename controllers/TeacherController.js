@@ -1,22 +1,53 @@
 const { Teacher, User, Class } = require("../models");
+const Subject = require("../models/SubjectModel");
+const Role = require("../models/Role");
 
 const createTeacher = async (req, res) => {
     try {
         const { user_id, subject_type } = req.body;
-
-        const checkUser = await User.findByPk(user_id);
+        const checkUser = await User.findByPk(user_id, {
+            include: [
+                {
+                    model: Role,
+                    as: "role",
+                    attributes: ["role_name"]
+                }
+            ]
+        });
         if (!checkUser) {
             return res.status(400).json({
                 success: false,
                 message: "User tidak ditemukan"
             });
         }
+        const roleName = checkUser.role?.role_name;
+        if (roleName !== "Guru") {
+            return res.status(400).json({
+                success: false,
+                message: "User bukanlah guru"
+            });
+        }
+        const checkSubject = await Subject.findByPk(subject_type);
+        if (!checkSubject) {
+            return res.status(400).json({
+                success: false,
+                message: "Subject tidak ditemukan"
+            });
+        }
 
+        const existing = await Teacher.findOne({
+            where: { user_id, subject_type }
+        });
+        if (existing) {
+            return res.status(400).json({
+                success: false,
+                message: "Mata Pelajaran sudah terdaftar untuk guru ini"
+            });
+        }
         const newTeacher = await Teacher.create({
             user_id,
             subject_type
         });
-
         return res.json({
             success: true,
             message: "Teacher berhasil dibuat",
@@ -24,34 +55,69 @@ const createTeacher = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(500).json({ success: false, error: error.message });
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
 };
+
 const getAllTeachers = async (req, res) => {
     try {
-        const data = await Teacher.findAll({
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                error: "User tidak ditemukan. Silakan login terlebih dahulu."
+            });
+        }
+
+        const userId = req.user.id;
+        const roleName = req.user.role?.role_name;
+        if (!roleName) {
+            return res.status(403).json({
+                success: false,
+                error: "Role tidak ditemukan."
+            });
+        }
+        let queryOptions = {
             include: [
                 {
                     model: User,
                     attributes: ["id", "username", "email"]
                 },
                 {
+                    model: Subject,
+                    attributes: ["id", "subject_name"]
+                },
+                {
                     model: Class,
-                    as: 'Classes',
+                    as: "Classes",
                     attributes: ["id", "class_name"],
                     through: { attributes: [] }
                 }
             ],
             order: [["id", "DESC"]]
-        });
+        };
+        if (roleName === "Guru") {
+            queryOptions.where = { user_id: userId };
+        }
 
-        // 🔥 Mapping menjadi flat object
-        const formatted = data.map(t => ({
+        const teachers = await Teacher.findAll(queryOptions);
+
+        if (!teachers || teachers.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: "Data guru tidak ditemukan.",
+                data: []
+            });
+        }
+        const formatted = teachers.map(t => ({
             id: t.id,
             user_id: t.user?.id,
             username: t.user?.username,
             email: t.user?.email,
             subject_type: t.subject_type,
+            subject_name: t.subject?.subject_name || null,
             classes: t.Classes?.map(c => ({
                 id: c.id,
                 class_name: c.class_name
@@ -64,9 +130,14 @@ const getAllTeachers = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(500).json({ success: false, error: error.message });
+        console.error("Error in getAllTeachers:", error);
+        return res.status(500).json({
+            success: false,
+            error: error.message || "Internal server error"
+        });
     }
 };
+
 const getTeacherById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -119,12 +190,16 @@ const getTeacherById = async (req, res) => {
 const getMyTeacher = async (req, res) => {
     try {
         const user_id = req.user.id;
-        const t = await Teacher.findOne({
+        const teachers = await Teacher.findAll({
             where: { user_id },
             include: [
                 {
                     model: User,
-                    attributes: ["id", "username", "email"]
+                    attributes: ["id", "username", "email",]
+                },
+                {
+                    model: Subject,
+                    attributes: ["id", "subject_name"]
                 },
                 {
                     model: Class,
@@ -132,27 +207,29 @@ const getMyTeacher = async (req, res) => {
                     attributes: ["id", "class_name"],
                     through: { attributes: [] }
                 }
-            ]
+            ],
+            order: [["id", "DESC"]]
         });
 
-        if (!t) {
+        if (!teachers || teachers.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Data guru tidak ditemukan untuk user ini"
             });
         }
 
-        const formatted = {
+        const formatted = teachers.map(t => ({
             id: t.id,
             user_id: t.user?.id,
             username: t.user?.username,
             email: t.user?.email,
             subject_type: t.subject_type,
+            subject_name: t.subject?.subject_name || null,
             classes: t.Classes?.map(c => ({
                 id: c.id,
                 class_name: c.class_name
             })) || []
-        };
+        }));
 
         return res.json({
             success: true,
@@ -166,8 +243,6 @@ const getMyTeacher = async (req, res) => {
         });
     }
 };
-
-
 
 
 const updateTeacher = async (req, res) => {

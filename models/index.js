@@ -15,6 +15,17 @@ db.LearningMaterials = require('./LearningMaterials')
 db.Assign = require("./AssignMaterials")
 db.DiscussionForum = require('./DiscussionForum');
 db.DiscussionPost = require('./DiscussionPost');
+db.Subject = require('./SubjectModel');
+
+
+db.Teacher.belongsTo(db.User, { foreignKey: "user_id" });
+db.User.hasOne(db.Teacher, { foreignKey: "user_id" });
+
+db.Teacher.belongsTo(db.Subject, { foreignKey: "subject_type" });
+db.Subject.hasMany(db.Teacher, { foreignKey: "subject_type" });
+
+db.User.hasMany(db.Class, { foreignKey: "homeroom_teacher", as: "HomeroomTeacher" });
+db.Class.belongsTo(db.User, { foreignKey: "homeroom_teacher", as: "HomeroomTeacher" });
 
 
 db.Teacher.belongsToMany(db.Class, {
@@ -33,9 +44,7 @@ db.Class.belongsToMany(db.Teacher, {
 db.User.belongsTo(db.Role, { foreignKey: 'role_id' });
 db.Role.hasMany(db.User, { foreignKey: 'role_id' });
 
-
-db.LearningMaterials.belongsTo(db.Class, { foreignKey: 'class_id' });
-db.Class.hasMany(db.LearningMaterials, { foreignKey: 'class_id' });
+db.LearningMaterials.belongsTo(db.Class, { foreignKey: "class_id" })
 
 db.DiscussionForum.belongsTo(db.Class, { foreignKey: 'class_id' });
 db.Class.hasMany(db.DiscussionForum, { foreignKey: 'class_id' });
@@ -50,6 +59,9 @@ db.DiscussionPost.belongsTo(db.DiscussionForum, { foreignKey: 'discussion_id' })
 db.DiscussionForum.hasMany(db.DiscussionPost, { foreignKey: 'discussion_id' });
 db.DiscussionPost.belongsTo(db.User, { foreignKey: 'user_id' });
 db.User.hasMany(db.DiscussionPost, { foreignKey: 'user_id' });
+
+db.Teacher.hasMany(db.LearningMaterials, { foreignKey: "teacher_id", as: "learning_materials" });
+db.LearningMaterials.belongsTo(db.Teacher, { foreignKey: "teacher_id", as: "teacher" });
 
 
 db.sequelize = sequelize;

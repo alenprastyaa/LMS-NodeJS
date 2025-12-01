@@ -1,12 +1,25 @@
-const { LearningMaterials, Teacher, Class, User, Role, Students, Assign } = require("../models");
+const { LearningMaterials, Teacher, Class, User, Role, Students, TeacherClass, Subject } = require("../models");
+const { Op } = require("sequelize");
+
+
 
 const getAllLearningMaterials = async (req, res) => {
+    const { role } = req.user
+    const userId = req.user.id
+    const teacher = await Teacher.findOne({
+        where: { user_id: userId }
+    });
+
+    const student = await Students.findOne({
+        where: { user_id: userId }
+    });
+
     try {
         const data = await LearningMaterials.findAll({
             include: [
                 {
                     model: Teacher,
-                    as: "Teacher",
+                    as: "teacher",
                     include: [
                         {
                             model: User,
@@ -19,22 +32,70 @@ const getAllLearningMaterials = async (req, res) => {
                             ]
                         }
                     ]
-                },
-                {
-                    model: Class,
-                    as: "Class",
-                    attributes: ["id", "class_name"]
                 }
             ],
             order: [["id", "DESC"]]
         });
+        if (role.role_name === "Siswa") {
+            const data = await LearningMaterials.findAll({
+                where: {
+                    class_id: student.class_id
+                },
+                include: [
+                    {
+                        model: Teacher,
+                        attributes: ["subject_type"],
+                        as: "teacher",
+                        include: [
+                            { model: User, attributes: ["id", "username", "email"] },
+                            { model: Subject, attributes: ["subject_name"] }
+                        ]
+                    }
+                ],
+                order: [["createdAt", "DESC"]]
+            });
 
+            return res.json({
+                success: true,
+                role: role,
+                message: "Berhasil mengambil learning materials kelas Anda",
+                data
+            });
+        }
+        if (role.role_name === "Guru") {
+            const data = await LearningMaterials.findAll({
+                where: { teacher_id: teacher.id },
+                include: [
+                    {
+                        model: Teacher,
+                        as: "teacher",
+                        attributes: ["id", "subject_type"],
+                        include: [
+                            {
+                                model: User,
+                                attributes: ["id", "username", "email"]
+                            }
+                        ]
+                    }
+                ],
+                order: [["createdAt", "DESC"]]
+            });
+
+            return res.json({
+                success: true,
+                role: role,
+                message: "Berhasil mengambil learning materials Anda",
+                data
+            });
+        }
         res.json({
             success: true,
+            role: role,
             message: "Berhasil mengambil semua learning materials",
             data
         });
     } catch (error) {
+        console.error("Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -58,39 +119,31 @@ const getLearningMaterialsByClass = async (req, res) => {
         let canAccess = false;
         if (userRole === "Guru") {
             const teacher = await Teacher.findOne({
-                where: { user_id: userId }
+                where: { user_id: userId, class_id: classId }
             });
-            if (teacher) {
-                const materialsInClass = await LearningMaterials.count({
-                    where: {
-                        class_id: classId,
-                        teacher_id: teacher.id
-                    }
-                });
-                if (materialsInClass > 0) {
-                    canAccess = true;
-                }
-            }
+            canAccess = !!teacher;
         } else if (userRole === "Siswa") {
             const student = await Students.findOne({
-                where: { user_id: userId }
+                where: { user_id: userId, class_id: classId }
             });
-
-            if (student && student.class_id == classId) {
-                canAccess = true;
-            }
+            canAccess = !!student;
         } else if (userRole === "Admin") {
             canAccess = true;
         }
+
         if (!canAccess) {
             return res.status(403).json({
                 success: false,
                 message: "Anda tidak memiliki akses ke kelas ini"
             });
         }
-        let whereCondition = { class_id: classId };
+
+        let whereCondition = {};
+
         if (userRole === "Guru") {
-            const teacher = await Teacher.findOne({ where: { user_id: userId } });
+            const teacher = await Teacher.findOne({
+                where: { user_id: userId, class_id: classId }
+            });
             whereCondition.teacher_id = teacher.id;
         }
 
@@ -98,13 +151,8 @@ const getLearningMaterialsByClass = async (req, res) => {
             where: whereCondition,
             include: [
                 {
-                    model: Assign,
-                    as: "assign_materials",
-                    attributes: ["id", "user_id", "url_assign", "description", "createdAt"]
-                },
-                {
                     model: Teacher,
-                    as: "Teacher",
+                    as: "teacher",
                     attributes: ["id", "subject_type"],
                     include: [
                         {
@@ -118,11 +166,6 @@ const getLearningMaterialsByClass = async (req, res) => {
                             ]
                         }
                     ]
-                },
-                {
-                    model: Class,
-                    as: "Class",
-                    attributes: ["id", "class_name"]
                 }
             ],
             order: [["createdAt", "DESC"]]
@@ -150,23 +193,14 @@ const getLearningMaterialById = async (req, res) => {
             where: { id },
             include: [
                 {
-                    model: Assign,
-                    as: "assign_materials"
-                },
-                {
                     model: Teacher,
-                    as: "Teacher",
+                    as: "teacher",
                     include: [
                         {
                             model: User,
                             attributes: ["id", "username", "email"]
                         }
                     ]
-                },
-                {
-                    model: Class,
-                    as: "Class",
-                    attributes: ["id", "class_name"]
                 }
             ]
         });
@@ -184,23 +218,34 @@ const getLearningMaterialById = async (req, res) => {
             data
         });
     } catch (error) {
+        console.error("Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const createLearningMaterial = async (req, res) => {
     try {
-        const { teacher_id, class_id, url_material, title, description } = req.body;
-        if (!teacher_id || !class_id || !url_material || !title) {
+        const { teacher_id, url_material, title, description } = req.body;
+        if (!teacher_id || !url_material || !title) {
             return res.status(400).json({
                 success: false,
-                message: "Field 'teacher_id', 'class_id', 'url_material', dan 'title' wajib diisi."
+                message: "Field 'teacher_id', 'url_material', dan 'title' wajib diisi."
+            });
+        }
+
+        const teacher = await Teacher.findOne({
+            where: { id: teacher_id }
+        });
+
+        if (!teacher) {
+            return res.status(404).json({
+                success: false,
+                message: "Guru tidak ditemukan"
             });
         }
 
         const data = await LearningMaterials.create({
             teacher_id,
-            class_id,
             url_material,
             title,
             description
@@ -212,7 +257,7 @@ const createLearningMaterial = async (req, res) => {
             data
         });
     } catch (error) {
-        console.error("Error creating learning material (Admin):", error);
+        console.error("Error creating learning material:", error);
         res.status(500).json({
             success: false,
             message: error.message || "Terjadi kesalahan server saat membuat materi pembelajaran."
@@ -223,38 +268,26 @@ const createLearningMaterial = async (req, res) => {
 const createLearningMaterialGuru = async (req, res) => {
     try {
         const userId = req.user.id;
-        const teacher = await Teacher.findOne({
-            where: { user_id: userId }
-        });
-
-        if (!teacher) {
-            return res.status(404).json({
-                success: false,
-                message: "Akun ini tidak terdaftar sebagai Guru"
-            });
-        }
-
-        const { class_id, url_material, title, description } = req.body;
-
-        if (!title || !class_id || !url_material) {
+        const { class_id, teacher_id, url_material, title, description } = req.body;
+        if (!title || !teacher_id || !url_material || !class_id) {
             return res.status(400).json({
                 success: false,
-                message: "Field 'title', 'class_id', dan 'url_material' wajib diisi."
+                message: "Field 'title', 'teacher_id', dan 'url_material' wajib diisi."
             });
         }
-
-        // Validasi class ada
-        const classData = await Class.findOne({ where: { id: class_id } });
-        if (!classData) {
+        const targetTeacher = await Teacher.findOne({
+            where: teacher_id
+        });
+        if (!targetTeacher) {
             return res.status(404).json({
                 success: false,
-                message: "Kelas tidak ditemukan"
+                message: "Kelas Pelajaran tidak ditemukan."
             });
         }
-
         const data = await LearningMaterials.create({
-            teacher_id: teacher.id,
+            user_id: userId,
             class_id,
+            teacher_id,
             url_material,
             title,
             description
@@ -269,47 +302,55 @@ const createLearningMaterialGuru = async (req, res) => {
         console.error("Error creating learning material for guru:", error);
         res.status(500).json({
             success: false,
-            message: error.message || "Terjadi kesalahan server saat membuat materi pembelajaran."
+            message: error.message || "Terjadi kesalahan server."
         });
     }
 };
+
 
 const updateLearningMaterial = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const { title, description, url_material } = req.body;
-
-        const check = await LearningMaterials.findOne({ where: { id } });
-        if (!check) {
+        const { title, description, url_material, class_id } = req.body;
+        const material = await LearningMaterials.findOne({
+            where: { id },
+            include: [
+                {
+                    model: Teacher,
+                    as: "teacher"
+                }
+            ]
+        });
+        if (!material) {
             return res.status(404).json({
                 success: false,
                 message: "Learning material tidak ditemukan"
             });
         }
 
-        // Validasi: guru hanya bisa edit materi miliknya sendiri
         const teacher = await Teacher.findOne({
             where: { user_id: userId }
         });
 
-        if (teacher && check.teacher_id !== teacher.id) {
+        if (!teacher || material.teacher.id !== teacher.id) {
             return res.status(403).json({
                 success: false,
                 message: "Anda tidak memiliki izin untuk mengedit materi ini"
             });
         }
 
-        await check.update({
-            title: title || check.title,
-            description: description || check.description,
-            url_material: url_material || check.url_material
+        await material.update({
+            title: title || material.title,
+            description: description || material.description,
+            url_material: url_material || material.url_material,
+            class_id: class_id || material.class_id
         });
 
         res.json({
             success: true,
             message: "Learning material berhasil diperbarui",
-            data: check
+            data: material
         });
     } catch (error) {
         console.error("Error updating learning material:", error);
@@ -322,27 +363,35 @@ const deleteLearningMaterial = async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
-        const check = await LearningMaterials.findOne({ where: { id } });
-        if (!check) {
+        const material = await LearningMaterials.findOne({
+            where: { id },
+            include: [
+                {
+                    model: Teacher,
+                    as: "teacher"
+                }
+            ]
+        });
+
+        if (!material) {
             return res.status(404).json({
                 success: false,
                 message: "Learning material tidak ditemukan"
             });
         }
 
-        // Validasi: guru hanya bisa delete materi miliknya sendiri
         const teacher = await Teacher.findOne({
             where: { user_id: userId }
         });
 
-        if (teacher && check.teacher_id !== teacher.id) {
+        if (!teacher || material.teacher.id !== teacher.id) {
             return res.status(403).json({
                 success: false,
                 message: "Anda tidak memiliki izin untuk menghapus materi ini"
             });
         }
 
-        await check.destroy();
+        await material.destroy();
 
         res.json({
             success: true,
@@ -357,7 +406,31 @@ const deleteLearningMaterial = async (req, res) => {
 const getMyLearningMaterials = async (req, res) => {
     try {
         const userId = req.user.id;
+        const checkUser = await User.findByPk(userId, {
+            include: [
+                {
+                    model: Role,
+                    as: "role",
+                    attributes: ["role_name"]
+                }
+            ]
+        });
 
+        if (!checkUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User tidak ditemukan"
+            });
+        }
+
+        const roleName = checkUser.role?.role_name;
+
+        if (roleName !== "Guru") {
+            return res.status(403).json({
+                success: false,
+                message: "Hanya guru yang dapat mengakses materi pembelajaran mereka"
+            });
+        }
         const teacher = await Teacher.findOne({
             where: { user_id: userId }
         });
@@ -365,39 +438,25 @@ const getMyLearningMaterials = async (req, res) => {
         if (!teacher) {
             return res.status(404).json({
                 success: false,
-                message: "Akun ini tidak terdaftar sebagai Guru"
+                message: "Data guru tidak ditemukan"
             });
         }
-
         const data = await LearningMaterials.findAll({
             where: { teacher_id: teacher.id },
             include: [
                 {
-                    model: Assign,
-                    as: "assign_materials"
-                },
-                {
                     model: Teacher,
-                    as: "Teacher",
+                    as: "teacher",
+                    attributes: ["id", "subject_type"],
                     include: [
                         {
                             model: User,
-                            attributes: ["id", "username", "email"],
-                            include: [
-                                {
-                                    model: Role,
-                                    attributes: ["role_name"]
-                                }
-                            ]
+                            attributes: ["id", "username", "email"]
                         }
                     ]
-                },
-                {
-                    model: Class,
-                    as: "Class"
                 }
             ],
-            order: [["id", "DESC"]]
+            order: [["createdAt", "DESC"]]
         });
 
         res.json({
@@ -406,56 +465,75 @@ const getMyLearningMaterials = async (req, res) => {
             data
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Error fetching my learning materials:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Terjadi kesalahan server"
+        });
     }
 };
 
 const getMyLearningMaterialsStudent = async (req, res) => {
     try {
         const userId = req.user.id;
+        const { role } = req.user
         const student = await Students.findOne({
             where: { user_id: userId }
         });
-
         if (!student) {
             return res.status(404).json({
                 success: false,
-                message: "Akun ini tidak terdaftar sebagai Siswa"
+                message: "Anda tidak terdaftar sebagai Siswa"
+            });
+        }
+        const teachers = await Teacher.findAll({
+            include: [
+                {
+                    model: Class,
+                    as: "Classes",
+                    where: { id: student.class_id },
+                    attributes: ["id", "class_name"],
+                    through: { attributes: [] }
+                }
+            ]
+        });
+
+        if (!teachers || teachers.length === 0) {
+            return res.json({
+                success: true,
+                message: "Tidak ada materi di kelas ini",
+                data: []
             });
         }
 
+        const teacherIds = teachers.map(t => t.id);
         const data = await LearningMaterials.findAll({
-            where: { class_id: student.class_id },
+            where: {
+                class_id: student.class_id
+            },
             include: [
                 {
-                    model: Assign,
-                    as: "assign_materials"
-                },
-                {
                     model: Teacher,
-                    as: "Teacher",
+                    attributes: ["subject_type"],
+                    as: "teacher",
                     include: [
-                        {
-                            model: User,
-                            attributes: ["id", "username", "email"]
-                        }
+                        { model: User, attributes: ["id", "username", "email"] },
+                        { model: Subject, attributes: ["subject_name"] }
                     ]
-                },
-                {
-                    model: Class,
-                    as: "Class",
-                    attributes: ["id", "class_name"]
                 }
             ],
-            order: [["id", "DESC"]]
+            order: [["createdAt", "DESC"]]
         });
 
         res.json({
             success: true,
+            role: role.role_name,
             message: "Berhasil mengambil learning materials kelas Anda",
             data
         });
+
     } catch (error) {
+        console.error("Error fetching student learning materials:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

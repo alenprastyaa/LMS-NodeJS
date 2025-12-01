@@ -2,6 +2,8 @@ const Students = require("../models/Students");
 const User = require("../models/User");
 const Class = require("../models/Class");
 const Role = require("../models/Role");
+const { Op } = require("sequelize");
+
 const createStudent = async (req, res) => {
     try {
         const { class_id, user_id, parent_email } = req.body;
@@ -66,16 +68,43 @@ const createStudent = async (req, res) => {
         });
     }
 };
+
 const getAllStudents = async (req, res) => {
     try {
-        const students = await Students.findAll({
+        const {
+            page = 1,
+            limit = 10,
+            search = "",
+            class_id
+        } = req.query;
+
+        const offset = (page - 1) * limit;
+
+        const where = {};
+        if (class_id) {
+            where.class_id = class_id;
+        }
+        if (search) {
+            where[Op.or] = [
+                { '$user.username$': { [Op.like]: `%${search}%` } },
+                { '$user.email$': { [Op.like]: `%${search}%` } },
+                { '$class.class_name$': { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const { rows, count } = await Students.findAndCountAll({
+            where,
             include: [
                 { model: User, attributes: ["id", "username", "email"] },
                 { model: Class, attributes: ["id", "class_name"] }
-            ]
+            ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [["id", "DESC"]],
+            distinct: true
         });
 
-        const result = students.map(s => ({
+        const result = rows.map(s => ({
             id: s.id,
             user_id: s.user.id,
             username: s.user.username,
@@ -88,7 +117,13 @@ const getAllStudents = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Data siswa berhasil diambil",
-            data: result
+            data: result,
+            pagination: {
+                total: count,
+                page: Number(page),
+                limit: Number(limit),
+                total_pages: Math.ceil(count / limit)
+            }
         });
 
     } catch (error) {
@@ -98,6 +133,7 @@ const getAllStudents = async (req, res) => {
         });
     }
 };
+
 
 const getStudentById = async (req, res) => {
     try {

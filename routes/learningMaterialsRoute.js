@@ -14,7 +14,7 @@ const {
 } = require("../controllers/learningMaterialsController");
 const { GuruOnly, AuthMiddleares, AdminOnly, StudentOnly } = require("../middleware/authMiddleware");
 
-router.get("/", AuthMiddleares, AdminOnly, getAllLearningMaterials);
+router.get("/", AuthMiddleares, getAllLearningMaterials);
 router.post("/", AuthMiddleares, AdminOnly, createLearningMaterial);
 router.post("/guru", AuthMiddleares, GuruOnly, createLearningMaterialGuru);
 router.get("/my/guru", AuthMiddleares, GuruOnly, getMyLearningMaterials);

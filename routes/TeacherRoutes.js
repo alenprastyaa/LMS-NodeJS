@@ -7,15 +7,15 @@ const {
     deleteTeacher,
     getMyTeacher
 } = require("../controllers/TeacherController");
-const { AuthMiddleares, GuruOnly } = require("../middleware/authMiddleware");
+const { AuthMiddleares, GuruOnly, verifyToken, AdminOnly } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.post("/", createTeacher);
+router.post("/", verifyToken, AdminOnly, createTeacher);
 router.get("/class/me", AuthMiddleares, GuruOnly, getMyTeacher);
-router.get("/", getAllTeachers);
-router.get("/:id", getTeacherById);
-router.put("/:id", updateTeacher);
-router.delete("/:id", deleteTeacher);
+router.get("/", verifyToken, getAllTeachers);
+router.get("/:id", verifyToken, getTeacherById);
+router.put("/:id", verifyToken, AdminOnly, updateTeacher);
+router.delete("/:id", verifyToken, AdminOnly, deleteTeacher);
 
 module.exports = router;

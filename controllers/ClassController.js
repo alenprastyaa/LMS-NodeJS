@@ -28,17 +28,7 @@ const getAllClass = async (req, res) => {
                         { model: User, attributes: ["username"] }
                     ]
                 },
-                {
-                    model: LearningMaterials,
-                    as: "LearningMaterials",
-                    attributes: ["id", "url_material"],
-                    include: [
-                        {
-                            model: Teacher,
-                            as: "Teacher",
-                        }
-                    ]
-                }
+
             ],
             order: [["id", "DESC"]]
         });
@@ -53,11 +43,7 @@ const getAllClass = async (req, res) => {
                 parent_email: s.parent_email,
                 student_username: s.user?.username || null
             })),
-            learning_materials: c.LearningMaterials.map(m => ({
-                id: m.id,
-                url_material: m.url_material,
-                teacher_username: m.Teacher?.username || null
-            }))
+
         }));
 
         return res.json({ success: true, data: result });

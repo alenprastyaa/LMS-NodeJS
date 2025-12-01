@@ -15,21 +15,23 @@ const teacherClassRoutes = require("./routes/teacherClassRoute")
 const learningMaterialsRoute = require("./routes/learningMaterialsRoute");
 const AssignRoutes = require("./routes/AssignMaterialRoutes");
 const discussionRoutes = require("./routes/discussionRoutes");
+const SubjectRoute = require("./routes/SubjectRoute");
 
 const cors = require('cors')
 app.use(cors())
 
-app.use("/api/roles", Role);
-app.use("/api/user", User);
-app.use("/api/qr", DailyQr)
-app.use("/api/attendance", attendanceRoutes);
-app.use("/api/class", classRoutes)
-app.use("/api/student", studentRoutes)
-app.use("/api/teacher", teacherRoutes);
-app.use("/api/teacher-class", teacherClassRoutes)
-app.use("/api/learning-materials", learningMaterialsRoute);
-app.use("/api/assign-materials", AssignRoutes);
-app.use("/api", discussionRoutes);
+app.use("/api/lms/roles", Role);
+app.use("/api/lms/user", User);
+app.use("/api/lms/qr", DailyQr)
+app.use("/api/lms/attendance", attendanceRoutes);
+app.use("/api/lms/class", classRoutes)
+app.use("/api/lms/student", studentRoutes)
+app.use("/api/lms/teacher", teacherRoutes);
+app.use("/api/lms/teacher-class", teacherClassRoutes)
+app.use("/api/lms/learning-materials", learningMaterialsRoute);
+app.use("/api/lms/assign-materials", AssignRoutes);
+app.use("/api/lms", discussionRoutes);
+app.use("/api/lms/subject", SubjectRoute);
 
 const StartApp = async () => {
     try {
