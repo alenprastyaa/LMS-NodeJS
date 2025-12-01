@@ -35,15 +35,42 @@ app.use("/api/lms/subject", SubjectRoute);
 
 const StartApp = async () => {
     try {
-        console.log('Connection has been established successfully.');
+        console.log("============================================");
+        console.log("🔌  Starting Application...");
+        console.log("============================================\n");
+
+        console.log("⏳  Testing database connection...");
+        await db.sequelize.authenticate();
+        console.log("✅  Database connection established successfully!\n");
+
+        console.log("📁  Registered Sequelize Models:");
+        console.log("--------------------------------------------");
+        Object.keys(db).forEach(key => {
+            if (key !== "sequelize" && key !== "Sequelize") {
+                console.log(" -", key);
+            }
+        });
+        console.log("--------------------------------------------\n");
+        console.log("⏳  Synchronizing database tables...");
         await db.sequelize.sync({ alter: true });
-        console.log('All models were synchronized successfully.');
-        app.listen(3400, () => {
-            console.log("Aplikasi Berjalan diport : 3400")
-        })
+
+        console.log("✅  All models synchronized successfully!\n");
+        const PORT = 3400;
+        app.listen(PORT, () => {
+            console.log(`🚀  Server running at http://localhost:${PORT}`);
+        });
+
+        console.log("\n============================================");
+        console.log("🎉  Application started successfully!");
+        console.log("============================================");
+
     } catch (error) {
-        console.log("Unable to connect to the database:", error)
+        console.log("\n❌  Unable to start application!");
+        console.log("============================================");
+        console.error("🔥  Error details:", error.message);
+        console.error(error);
+        console.log("============================================\n");
     }
-}
+};
 
 StartApp()
