@@ -4,6 +4,11 @@ const Teacher = require("./Teacher");
 const Class = require("./Class");
 
 const LearningMaterials = DB.define("learning_material", {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
     teacher_id: {
         type: DataTypes.INTEGER,
         allowNull: false,

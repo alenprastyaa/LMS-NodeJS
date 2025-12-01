@@ -12,14 +12,14 @@ const {
     getMyLearningMaterialsStudent,
     getLearningMaterialsByClass
 } = require("../controllers/learningMaterialsController");
-const { GuruOnly, AuthMiddleares, AdminOnly, StudentOnly } = require("../middleware/authMiddleware");
+const { GuruOnly, AuthMiddleares, AdminOnly, StudentOnly, verifyToken } = require("../middleware/authMiddleware");
 
 router.get("/", AuthMiddleares, getAllLearningMaterials);
-router.post("/", AuthMiddleares, AdminOnly, createLearningMaterial);
+router.post("/", verifyToken, AuthMiddleares, createLearningMaterial);
 router.post("/guru", AuthMiddleares, GuruOnly, createLearningMaterialGuru);
 router.get("/my/guru", AuthMiddleares, GuruOnly, getMyLearningMaterials);
 router.put("/:id", AuthMiddleares, GuruOnly, updateLearningMaterial);
-router.delete("/:id", AuthMiddleares, GuruOnly, deleteLearningMaterial);
+router.delete("/:id", verifyToken, AuthMiddleares, deleteLearningMaterial);
 router.get("/my/student", AuthMiddleares, StudentOnly, getMyLearningMaterialsStudent);
 router.get("/class/:classId", AuthMiddleares, getLearningMaterialsByClass);
 router.get("/:id", getLearningMaterialById);

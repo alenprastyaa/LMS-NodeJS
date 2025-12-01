@@ -11,8 +11,8 @@ const {
 
 
 router.post("/", AuthMiddleares, StudentOnly, CreateAssign);
-router.get("/", AuthMiddleares, AdminOnly, GetAllAssign);
-router.get("/assign/me", AuthMiddleares, StudentOnly, GetAssignByUser);
+router.get("/", verifyToken, AuthMiddleares, GetAllAssign);
+router.get("/assign/me", AuthMiddleares, GetAssignByUser);
 router.put("/:id", AuthMiddleares, StudentOnly, UpdateAssign);
 router.delete("/:id", AuthMiddleares, StudentOnly, DeleteAssign);
 

@@ -1,5 +1,6 @@
 const { LearningMaterials } = require("../models");
 const Assign = require("../models/AssignMaterials");
+const { Op } = require('sequelize')
 
 const CreateAssign = async (req, res) => {
     try {
@@ -41,12 +42,59 @@ const CreateAssign = async (req, res) => {
 
 const GetAllAssign = async (req, res) => {
     try {
-        const data = await Assign.findAll();
-        res.json({ success: true, data });
+        const { role } = req.user;
+        const userId = req.user.id;
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+        const search = req.query.search || "";
+        let whereCondition = {
+            description: { [Op.like]: `%${search}%` }
+        };
+
+        if (role.role_name === "Guru") {
+            whereCondition.user_id = userId;
+        }
+        if (role.role_name === "Siswa") {
+            whereCondition.user_id = userId;
+        }
+
+        const { rows, count } = await Assign.findAndCountAll({
+            where: whereCondition,
+            include: [
+                {
+                    model: LearningMaterials,
+                    attributes: ["id", "title"]
+                }
+            ],
+            order: [["createdAt", "DESC"]],
+            limit,
+            offset
+        });
+
+        res.json({
+            success: true,
+            role: role.role_name,
+            message: "Berhasil mengambil data assign",
+            pagination: {
+                total: count,
+                page,
+                limit,
+                totalPages: Math.ceil(count / limit)
+            },
+            data: rows
+        });
+
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error("Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
+
 
 const GetAssignByUser = async (req, res) => {
     try {
@@ -54,7 +102,6 @@ const GetAssignByUser = async (req, res) => {
         const data = await Assign.findAll({
             where: { user_id: userId }
         });
-
         res.json({ success: true, data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
