@@ -3,6 +3,7 @@ const Class = require("../models/Class");
 const TeacherClass = require("../models/TeacherClass");
 const User = require("../models/User");
 const { Subject } = require("../models");
+const Students = require("../models/Students")
 
 const assignTeacherToClass = async (req, res) => {
     try {
@@ -115,6 +116,7 @@ const getClassesByTeacher = async (req, res) => {
         res.status(500).json({ success: false, error });
     }
 };
+
 const getAllTeacherClass = async (req, res) => {
     try {
         if (!req.user) {
@@ -125,17 +127,19 @@ const getAllTeacherClass = async (req, res) => {
         }
 
         const userId = req.user.id;
-        const role = req.user.role;
+        const roleName = req.user.role?.role_name;
 
-        if (!role) {
+        if (!roleName) {
             return res.status(403).json({
                 success: false,
                 error: "Role tidak ditemukan."
             });
         }
 
-        //  ===================  UNTUK GURU  ===================
-        if (role.role_name === "Guru") {
+        // ===============================
+        // CASE 1 → ROLE GURU
+        // ===============================
+        if (roleName === "Guru") {
             const teachers = await Teacher.findAll({
                 where: { user_id: userId },
                 include: [
@@ -151,14 +155,6 @@ const getAllTeacherClass = async (req, res) => {
                 order: [["id", "DESC"]]
             });
 
-            if (!teachers || teachers.length === 0) {
-                return res.json({
-                    success: true,
-                    message: "Data guru tidak ditemukan.",
-                    data: []
-                });
-            }
-
             const formatted = teachers.map(t => ({
                 id: t.id,
                 user_id: t.user?.id,
@@ -172,13 +168,66 @@ const getAllTeacherClass = async (req, res) => {
                 })) || []
             }));
 
+            return res.json({ success: true, data: formatted });
+        }
+
+        // ===============================
+        // CASE 2 → ROLE SISWA
+        // ===============================
+        if (roleName === "Siswa") {
+            const student = await Students.findOne({
+                where: { user_id: userId },
+                include: [
+                    {
+                        model: Class,
+                        as: "Class",
+                        include: [
+                            {
+                                model: Teacher,
+                                as: "Teachers",
+                                include: [
+                                    { model: User, attributes: ["id", "username", "email"] },
+                                    { model: Subject, attributes: ["id", "subject_name"] }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            });
+
+            if (!student || !student.Class) {
+                return res.json({
+                    success: true,
+                    message: "Siswa tidak memiliki kelas atau data tidak ditemukan",
+                    data: []
+                });
+            }
+
+            // Ambil semua guru di kelas tersebut
+            const teacherList = student.Class.Teachers.map(t => ({
+                id: t.id,
+                user_id: t.user?.id,
+                username: t.user?.username,
+                email: t.user?.email,
+                subject_type: t.subject_type,
+                subject_name: t.subject?.subject_name || null,
+                classes: [
+                    {
+                        id: student.Class.id,
+                        class_name: student.Class.class_name
+                    }
+                ]
+            }));
+
             return res.json({
                 success: true,
-                data: formatted
+                data: teacherList
             });
         }
 
-        //  ===================  UNTUK ADMIN — FORMAT DISAMAKAN  ===================
+        // ===============================
+        // CASE 3 → ROLE ADMIN (atau role lain)
+        // ===============================
         const teachers = await Teacher.findAll({
             include: [
                 { model: User, attributes: ["id", "username", "email"] },
@@ -206,19 +255,17 @@ const getAllTeacherClass = async (req, res) => {
             })) || []
         }));
 
-        return res.json({
-            success: true,
-            data: formatted
-        });
+        return res.json({ success: true, data: formatted });
 
     } catch (error) {
         console.error("Error in getAllTeacherClass:", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             error: error.message || "Internal server error"
         });
     }
 };
+
 
 module.exports = {
     assignTeacherToClass,

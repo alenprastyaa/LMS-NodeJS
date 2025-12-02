@@ -18,7 +18,6 @@ db.DiscussionForum = require('./DiscussionForum');
 db.DiscussionPost = require('./DiscussionPost');
 db.Subject = require('./SubjectModel');
 
-// RELATIONS (tetap sama)
 db.Teacher.belongsTo(db.User, { foreignKey: "user_id" });
 db.User.hasOne(db.Teacher, { foreignKey: "user_id" });
 
@@ -43,10 +42,11 @@ db.Class.belongsToMany(db.Teacher, {
 db.User.belongsTo(db.Role, { foreignKey: 'role_id' });
 db.Role.hasMany(db.User, { foreignKey: 'role_id' });
 
-db.LearningMaterials.belongsTo(db.Class, { foreignKey: "class_id" })
+db.LearningMaterials.belongsTo(db.Class, { foreignKey: "class_id" });
 
 db.DiscussionForum.belongsTo(db.Class, { foreignKey: 'class_id' });
 db.Class.hasMany(db.DiscussionForum, { foreignKey: 'class_id' });
+
 db.DiscussionForum.belongsTo(db.Teacher, { foreignKey: 'teacher_id' });
 db.Teacher.hasMany(db.DiscussionForum, { foreignKey: 'teacher_id' });
 
@@ -55,11 +55,17 @@ db.LearningMaterials.hasMany(db.DiscussionForum, { foreignKey: 'material_id' });
 
 db.DiscussionPost.belongsTo(db.DiscussionForum, { foreignKey: 'discussion_id' });
 db.DiscussionForum.hasMany(db.DiscussionPost, { foreignKey: 'discussion_id' });
+
 db.DiscussionPost.belongsTo(db.User, { foreignKey: 'user_id' });
 db.User.hasMany(db.DiscussionPost, { foreignKey: 'user_id' });
 
 db.Teacher.hasMany(db.LearningMaterials, { foreignKey: "teacher_id", as: "learning_materials" });
 db.LearningMaterials.belongsTo(db.Teacher, { foreignKey: "teacher_id", as: "teacher" });
+
+
+db.Students.belongsTo(db.Class, { foreignKey: "class_id", as: "Class" });
+db.Class.hasMany(db.Students, { foreignKey: "class_id", as: "Students" });
+// =========================
 
 // EXPORT
 db.sequelize = sequelize;

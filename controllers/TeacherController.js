@@ -70,7 +70,6 @@ const getAllTeachers = async (req, res) => {
                 error: "User tidak ditemukan. Silakan login terlebih dahulu."
             });
         }
-
         const userId = req.user.id;
         const roleName = req.user.role?.role_name;
         if (!roleName) {
@@ -101,9 +100,7 @@ const getAllTeachers = async (req, res) => {
         if (roleName === "Guru") {
             queryOptions.where = { user_id: userId };
         }
-
         const teachers = await Teacher.findAll(queryOptions);
-
         if (!teachers || teachers.length === 0) {
             return res.status(200).json({
                 success: true,

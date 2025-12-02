@@ -4,7 +4,7 @@ const { verifyToken, GuruOnly, StudentOnly, AdminOnly, AuthMiddleares } = requir
 const discussionForumController = require("../controllers/DiscussionForumController");
 const discussionPostController = require("../controllers/DiscussionPostController");
 
-router.post("/classes/discussions", AuthMiddleares, GuruOnly, discussionForumController.createDiscussion);
+router.post("/classes/discussions", verifyToken, AuthMiddleares, GuruOnly, discussionForumController.createDiscussion);
 router.get("/materials/:materialId/discussions-material", AuthMiddleares, discussionForumController.getDiscussionsByMaterial);
 router.get("/classes/:classId/discussions", AuthMiddleares, discussionForumController.getDiscussionsByClass);
 router.get("/discussions/:id", AuthMiddleares, discussionForumController.getDiscussionById);
@@ -14,5 +14,6 @@ router.post("/discussions/:discussionId/posts", AuthMiddleares, discussionPostCo
 router.put("/posts/:postId", AuthMiddleares, discussionPostController.updatePost);
 router.delete("/posts/:postId", AuthMiddleares, discussionPostController.deletePost);
 router.get("/discusion/my/disc", AuthMiddleares, discussionForumController.getMyDiscusion);
+router.get("/discusion", verifyToken, AuthMiddleares, discussionForumController.getAllDiscussions)
 
 module.exports = router;

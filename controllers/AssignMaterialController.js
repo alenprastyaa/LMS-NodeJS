@@ -1,4 +1,4 @@
-const { LearningMaterials } = require("../models");
+const { LearningMaterials, Teacher } = require("../models");
 const Assign = require("../models/AssignMaterials");
 const { Op } = require('sequelize')
 
@@ -17,6 +17,19 @@ const CreateAssign = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: "material_id tidak ditemukan"
+            });
+        }
+        const existing = await Assign.findOne({
+            where: {
+                user_id: userId,
+                material_id
+            }
+        });
+
+        if (existing) {
+            return res.status(404).json({
+                success: false,
+                message: "Anda sudah mengerjakan tugas ini"
             });
         }
         const data = await Assign.create({
@@ -49,28 +62,42 @@ const GetAllAssign = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
         const search = req.query.search || "";
+
         let whereCondition = {
             description: { [Op.like]: `%${search}%` }
         };
+        let includeClause = [
+            {
+                model: LearningMaterials,
+                attributes: ["id", "title", "teacher_id"],
+                include: {
+                    model: Teacher,
+                    as: 'teacher',
+                    attributes: ['id', 'user_id']
+                }
+            }
+        ];
 
         if (role.role_name === "Guru") {
+            const teacher = await Teacher.findOne({ where: { user_id: userId } });
+            if (!teacher) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Data guru tidak ditemukan untuk user ini."
+                });
+            }
+            includeClause[0].where = { teacher_id: teacher.id };
+            includeClause[0].required = true;
+        } else if (role.role_name === "Siswa") {
             whereCondition.user_id = userId;
         }
-        if (role.role_name === "Siswa") {
-            whereCondition.user_id = userId;
-        }
-
         const { rows, count } = await Assign.findAndCountAll({
             where: whereCondition,
-            include: [
-                {
-                    model: LearningMaterials,
-                    attributes: ["id", "title"]
-                }
-            ],
+            include: includeClause,
             order: [["createdAt", "DESC"]],
             limit,
-            offset
+            offset,
+            distinct: true
         });
 
         res.json({

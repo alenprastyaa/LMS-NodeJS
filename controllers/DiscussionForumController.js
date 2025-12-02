@@ -3,47 +3,21 @@ const { DiscussionForum, Class, Teacher, User, DiscussionPost, Students, Teacher
 const createDiscussion = async (req, res) => {
     try {
         const userId = req.user.id;
-        const teacher = await Teacher.findOne({ where: { user_id: userId } });
-
-        if (!teacher) {
-            return res.status(403).json({
-                success: false,
-                message: "Hanya Guru yang dapat membuat diskusi"
-            });
-        }
-        const { material_id, title, description } = req.body;
-        if (!material_id) {
-            return res.status(400).json({
-                success: false,
-                message: "material_id is required"
-            });
-        }
-        const material = await LearningMaterials.findOne({
-            where: { id: material_id },
-            include: [{
-                model: Class,
-                attributes: ['id', 'class_name']
-            }]
+        const { user_id, class_id, teacher_id, title, description } = req.body;
+        const material = await TeacherClass.findOne({
+            where: { teacher_id: userId },
         });
-
         if (!material) {
             return res.status(404).json({
                 success: false,
-                message: "Materi tidak ditemukan"
-            });
-        }
-
-        if (material.teacher_id !== teacher.id) {
-            return res.status(403).json({
-                success: false,
-                message: "Anda tidak memiliki izin membuat diskusi untuk materi ini"
+                message: "Materi tidak ditemukan atau Anda tidak memiliki izin"
             });
         }
         const newDiscussion = await DiscussionForum.create({
-            material_id,
-            class_id: material.class_id,
-            teacher_id: teacher.id,
+            userId: user_id,
+            teacher_id,
             title,
+            class_id,
             description
         });
 
@@ -52,7 +26,6 @@ const createDiscussion = async (req, res) => {
             include: [
                 {
                     model: LearningMaterials,
-                    as: 'Material',
                     attributes: ['id', 'title', 'description', 'url_material']
                 },
                 {
@@ -164,7 +137,7 @@ const getDiscussionsByClass = async (req, res) => {
         let canAccess = false;
 
         if (userRole === "Guru") {
-            const teacher = await Teacher.findOne({ where: { user_id: userId } });
+            const teacher = await TeacherClass.findOne({ where: { user_id: userId } });
             if (teacher) {
                 const discussionCount = await DiscussionForum.count({
                     where: {
@@ -399,6 +372,113 @@ const deleteDiscussion = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 };
+const getAllDiscussions = async (req, res) => {
+    try {
+
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                error: "User tidak ditemukan. Silakan login terlebih dahulu."
+            });
+        }
+
+        const userId = req.user.id;
+        const roleName = req.user.role?.role_name;
+
+        if (!roleName) {
+            return res.status(403).json({
+                success: false,
+                error: "Role tidak ditemukan."
+            });
+        }
+
+        let discussions = [];
+
+        if (roleName === "Guru") {
+            const teacher = await Teacher.findOne({
+                where: { user_id: userId },
+                include: [
+                    { model: User, attributes: ["id", "username", "email"] },
+                    { model: Class, as: "Classes", attributes: ["id", "class_name"], through: { attributes: [] } }
+                ]
+            });
+
+            if (!teacher) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Akun ini tidak terdaftar sebagai Guru"
+                });
+            }
+
+            discussions = await DiscussionForum.findAll({
+                where: { teacher_id: teacher.id },
+                include: [
+                    { model: LearningMaterials, attributes: ["id", "title", "description", "url_material"] },
+                    { model: Teacher, attributes: ["id", "subject_type"], include: [{ model: User, attributes: ["username", "full_name"] }] },
+                    { model: Class, attributes: ["id", "class_name"] },
+                    { model: DiscussionPost, as: "discussion_posts", attributes: ["id", "content", "created_at"], include: [{ model: User, attributes: ["username", "full_name"] }] }
+                ],
+                order: [["created_at", "DESC"]]
+            });
+        }
+
+        else if (roleName === "Siswa") {
+            // Ambil siswa berdasarkan user_id
+            const student = await Students.findOne({ where: { user_id: userId } });
+
+            if (!student) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Akun ini tidak terdaftar sebagai Siswa"
+                });
+            }
+            discussions = await DiscussionForum.findAll({
+                where: { class_id: student.class_id },
+                include: [
+                    { model: LearningMaterials, attributes: ["id", "title", "description", "url_material"] },
+                    { model: Teacher, attributes: ["id", "subject_type"], include: [{ model: User, attributes: ["username", "full_name"] }] },
+                    { model: Class, attributes: ["id", "class_name"] },
+                    { model: DiscussionPost, as: "discussion_posts", attributes: ["id", "content", "created_at"], include: [{ model: User, attributes: ["username", "full_name"] }] }
+                ],
+                order: [["created_at", "DESC"]]
+            });
+        }
+
+        else if (roleName === "Admin") {
+            discussions = await DiscussionForum.findAll({
+                include: [
+                    { model: LearningMaterials, attributes: ["id", "title", "description", "url_material"] },
+                    { model: Teacher, attributes: ["id", "subject_type"], include: [{ model: User, attributes: ["username", "full_name"] }] },
+                    { model: Class, attributes: ["id", "class_name"] },
+                    { model: DiscussionPost, as: "discussion_posts", attributes: ["id", "content", "created_at"], include: [{ model: User, attributes: ["username", "full_name"] }] }
+                ],
+                order: [["created_at", "DESC"]]
+            });
+        }
+
+        else {
+            return res.status(403).json({
+                success: false,
+                message: "Role tidak dikenali"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Diskusi berhasil diambil",
+            data: discussions
+        });
+
+    } catch (error) {
+        console.error("Error in getAllDiscussions:", error);
+        return res.status(500).json({
+            success: false,
+            error: error.message || "Internal server error"
+        });
+    }
+};
+
+
 
 module.exports = {
     createDiscussion,
@@ -407,5 +487,6 @@ module.exports = {
     getDiscussionById,
     updateDiscussion,
     deleteDiscussion,
-    getMyDiscusion
+    getMyDiscusion,
+    getAllDiscussions
 };

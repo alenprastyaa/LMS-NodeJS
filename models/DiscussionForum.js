@@ -1,7 +1,8 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 const Class = require("./Class");
-const Teacher = require("./Teacher");
+const TeacherClass = require("./TeacherClass");
+
 
 const DiscussionForum = sequelize.define("discussion_forums", {
     id: {
@@ -21,7 +22,7 @@ const DiscussionForum = sequelize.define("discussion_forums", {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: Teacher,
+            model: TeacherClass,
             key: "id"
         }
     },
@@ -48,8 +49,8 @@ const DiscussionForum = sequelize.define("discussion_forums", {
 DiscussionForum.belongsTo(Class, { foreignKey: 'class_id' });
 Class.hasMany(DiscussionForum, { foreignKey: 'class_id' });
 
-DiscussionForum.belongsTo(Teacher, { foreignKey: 'teacher_id' });
-Teacher.hasMany(DiscussionForum, { foreignKey: 'teacher_id' });
+DiscussionForum.belongsTo(TeacherClass, { foreignKey: 'teacher_id' });
+TeacherClass.hasMany(DiscussionForum, { foreignKey: 'teacher_id' });
 
 
 module.exports = DiscussionForum;
