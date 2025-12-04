@@ -1,3 +1,4 @@
+const { Teacher } = require("../models");
 const Subject = require("../models/SubjectModel");
 const { Op } = require("sequelize");
 
@@ -109,8 +110,19 @@ const UpdateSubject = async (req, res) => {
 
 const DeleteSubject = async (req, res) => {
     try {
+        const subjectId = req.params.id;
+        const teacherCount = await Teacher.count({
+            where: { subject_type: subjectId }
+        });
+
+        if (teacherCount > 0) {
+            return res.status(400).json({
+                status: 400,
+                message: "Subject tidak dapat dihapus karena masih digunakan oleh guru."
+            });
+        }
         await Subject.destroy({
-            where: { id: req.params.id }
+            where: { id: subjectId }
         });
 
         res.status(200).json({
@@ -122,6 +134,7 @@ const DeleteSubject = async (req, res) => {
         res.status(500).json({ status: 500, message: error.message });
     }
 };
+
 
 module.exports = {
     GetSubjects,

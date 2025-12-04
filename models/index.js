@@ -27,6 +27,8 @@ db.Subject.hasMany(db.Teacher, { foreignKey: "subject_type" });
 db.User.hasMany(db.Class, { foreignKey: "homeroom_teacher", as: "HomeroomTeacher" });
 db.Class.belongsTo(db.User, { foreignKey: "homeroom_teacher", as: "HomeroomTeacher" });
 
+
+
 db.Teacher.belongsToMany(db.Class, {
     through: db.TeacherClass,
     foreignKey: "teacher_id",
@@ -63,8 +65,11 @@ db.Teacher.hasMany(db.LearningMaterials, { foreignKey: "teacher_id", as: "learni
 db.LearningMaterials.belongsTo(db.Teacher, { foreignKey: "teacher_id", as: "teacher" });
 
 
-db.Students.belongsTo(db.Class, { foreignKey: "class_id", as: "Class" });
-db.Class.hasMany(db.Students, { foreignKey: "class_id", as: "Students" });
+db.Students.belongsTo(db.Class, { foreignKey: "class_id" });
+db.Class.hasMany(db.Students, { foreignKey: "class_id" });
+
+db.Students.belongsTo(db.User, { foreignKey: "user_id" });
+db.User.hasOne(db.Students, { foreignKey: "user_id" });
 // =========================
 
 // EXPORT

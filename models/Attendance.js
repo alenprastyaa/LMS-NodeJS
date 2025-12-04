@@ -3,9 +3,13 @@ const sequelize = require("../config/db");
 const User = require("./User");
 
 const Attendance = sequelize.define("attandance", {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         references: {
             model: User,
             key: "id"

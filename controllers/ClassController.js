@@ -1,62 +1,24 @@
 const Class = require("../models/Class");
 const User = require("../models/User");
 const Role = require("../models/Role");
-const Students = require("../models/Students");
-const { LearningMaterials, Teacher } = require("../models");
 
-// 1. Fungsi getAllClass
 const getAllClass = async (req, res) => {
     try {
         const classes = await Class.findAll({
-            attributes: ["id", "class_name"],
             include: [
                 {
                     model: User,
-                    as: "HomeroomTeacher",
-                    attributes: ["username"]
-                },
-                // Include untuk HeadClass dihilangkan
-                // {
-                //     model: User,
-                //     as: "HeadClass",
-                //     attributes: ["username"]
-                // },
-                {
-                    model: Students,
-                    attributes: ["parent_email"],
-                    include: [
-                        { model: User, attributes: ["username"] }
-                    ]
-                },
-
-            ],
-            order: [["id", "DESC"]]
-        });
-
-        const result = classes.map(c => ({
-            id: c.id,
-            class_name: c.class_name,
-            homeroom_teacher: c.HomeroomTeacher?.username || null,
-            // head_class: c.HeadClass?.username || null, // Dihilangkan
-
-            students: c.students.map(s => ({
-                parent_email: s.parent_email,
-                student_username: s.user?.username || null
-            })),
-
-        }));
-
-        return res.json({ success: true, data: result });
-
+                    attributes: ["id", "full_name", "username", "email"]
+                }
+            ]
+        })
+        res.json({ data: classes })
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        res.json({ error })
     }
+
 };
 
-// 2. Fungsi getClassById
 const getClassById = async (req, res) => {
     try {
         const id = req.params.id;
@@ -114,12 +76,12 @@ const createClass = async (req, res) => {
             });
         }
 
-        if (isNaN(homeroom_teacher)) {
-            return res.status(400).json({
-                success: false,
-                message: "homeroom_teacher harus berupa angka"
-            });
-        }
+        // if (isNaN(homeroom_teacher)) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: "homeroom_teacher harus berupa angka"
+        //     });
+        // }
         const CheckTeacher = await User.findOne({
             where: { id: homeroom_teacher },
             include: [{ model: Role, as: "role" }]
@@ -194,12 +156,12 @@ const updateClass = async (req, res) => {
             });
         }
         // Validasi diubah: isNaN(head_class) dihilangkan
-        if (isNaN(homeroom_teacher)) {
-            return res.status(400).json({
-                success: false,
-                message: "homeroom_teacher harus berupa angka"
-            });
-        }
+        // if (isNaN(homeroom_teacher)) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: "homeroom_teacher harus berupa angka"
+        //     });
+        // }
         // Pemeriksaan homeroom_teacher dan head_class tidak boleh sama dihilangkan
         // if (parseInt(homeroom_teacher) === parseInt(head_class)) { ... }
 

@@ -3,14 +3,17 @@ const db = require("../config/db")
 const LearningMaterials = require("./LearningMaterials")
 const User = require("./User")
 
-
-
 const Assign = db.define("assign_materials", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     user_id: {
-        type: DataTypes.INTEGER
+        type: DataTypes.UUID,
     },
     material_id: {
-        type: DataTypes.INTEGER
+        type: DataTypes.UUID,
     },
     url_assign: {
         type: DataTypes.STRING

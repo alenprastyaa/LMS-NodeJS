@@ -36,7 +36,9 @@ app.use("/api/subject", SubjectRoute);
 const StartApp = async () => {
     try {
         console.log('Connection has been established successfully.');
-        await db.sequelize.sync({ alter: true });
+        await db.sequelize.sync({ alter: true }).then(() => {
+            console.log(" Sequelize sync completed (alter: true)");
+        });
         console.log('All models were synchronized successfully.');
         app.listen(3400, () => {
             console.log("Aplikasi Berjalan diport : 3400")

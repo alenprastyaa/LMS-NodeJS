@@ -5,12 +5,12 @@ const User = require("./User");
 
 const DiscussionPost = sequelize.define("discussion_posts", {
     id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
     discussion_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: DiscussionForum,
@@ -18,7 +18,7 @@ const DiscussionPost = sequelize.define("discussion_posts", {
         }
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: User,

@@ -3,9 +3,9 @@ const sequelize = require("../config/db");
 
 const DailyQR = sequelize.define("dailyqr", {
     id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
     tanggal: {
         type: DataTypes.DATEONLY,

@@ -128,7 +128,10 @@ const getAllTeacherClass = async (req, res) => {
 
         const userId = req.user.id;
         const roleName = req.user.role?.role_name;
-
+        const userData = await User.findOne({
+            where: { id: userId },
+            attributes: ["id", "username", "email", "class_id"]
+        });
         if (!roleName) {
             return res.status(403).json({
                 success: false,
@@ -171,59 +174,48 @@ const getAllTeacherClass = async (req, res) => {
             return res.json({ success: true, data: formatted });
         }
 
-        // ===============================
-        // CASE 2 → ROLE SISWA
-        // ===============================
         if (roleName === "Siswa") {
-            const student = await Students.findOne({
-                where: { user_id: userId },
+            const teachers = await Teacher.findAll({
+                where: {
+                    "$Classes.id$": userData.class_id
+                },
                 include: [
                     {
+                        model: User,
+                        as: "user",
+                        attributes: ["id", "username", "email", "class_id"]
+                    },
+                    {
+                        model: Subject,
+                        as: "subject",
+                        attributes: ["id", "subject_name"]
+                    },
+                    {
                         model: Class,
-                        as: "Class",
-                        include: [
-                            {
-                                model: Teacher,
-                                as: "Teachers",
-                                include: [
-                                    { model: User, attributes: ["id", "username", "email"] },
-                                    { model: Subject, attributes: ["id", "subject_name"] }
-                                ]
-                            }
-                        ]
+                        as: "Classes",
+                        attributes: ["id", "class_name"],
+                        through: { attributes: [] }
                     }
-                ]
+                ],
+                order: [["id", "DESC"]]
             });
 
-            if (!student || !student.Class) {
-                return res.json({
-                    success: true,
-                    message: "Siswa tidak memiliki kelas atau data tidak ditemukan",
-                    data: []
-                });
-            }
-
-            // Ambil semua guru di kelas tersebut
-            const teacherList = student.Class.Teachers.map(t => ({
+            const formatted = teachers.map(t => ({
                 id: t.id,
                 user_id: t.user?.id,
                 username: t.user?.username,
                 email: t.user?.email,
                 subject_type: t.subject_type,
                 subject_name: t.subject?.subject_name || null,
-                classes: [
-                    {
-                        id: student.Class.id,
-                        class_name: student.Class.class_name
-                    }
-                ]
+                classes: t.Classes?.map(c => ({
+                    id: c.id,
+                    class_name: c.class_name
+                })) || []
             }));
 
-            return res.json({
-                success: true,
-                data: teacherList
-            });
+            return res.json({ success: true, data: formatted });
         }
+
 
         // ===============================
         // CASE 3 → ROLE ADMIN (atau role lain)

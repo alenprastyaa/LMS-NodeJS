@@ -1,6 +1,7 @@
-const { LearningMaterials, Teacher } = require("../models");
+const { LearningMaterials, Teacher, Subject } = require("../models");
 const Assign = require("../models/AssignMaterials");
 const { Op } = require('sequelize')
+const User = require("../models/User")
 
 const CreateAssign = async (req, res) => {
     try {
@@ -52,12 +53,10 @@ const CreateAssign = async (req, res) => {
         });
     }
 };
-
 const GetAllAssign = async (req, res) => {
     try {
         const { role } = req.user;
         const userId = req.user.id;
-
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
@@ -66,31 +65,79 @@ const GetAllAssign = async (req, res) => {
         let whereCondition = {
             description: { [Op.like]: `%${search}%` }
         };
+
         let includeClause = [
             {
                 model: LearningMaterials,
-                attributes: ["id", "title", "teacher_id"],
-                include: {
-                    model: Teacher,
-                    as: 'teacher',
-                    attributes: ['id', 'user_id']
-                }
+                attributes: ["id", "title"],
+                include: [
+                    {
+                        model: Teacher,
+                        as: "teacher",
+                        attributes: ["id", "user_id", "subject_type"],
+                        include: [
+                            {
+                                model: Subject,
+                                attributes: ["subject_name"]
+                            },
+                            {
+                                model: User,
+                                attributes: ["username", "id"]
+                            }
+                        ]
+                    }
+                ]
             }
         ];
 
+        // Handle role-based filtering
         if (role.role_name === "Guru") {
-            const teacher = await Teacher.findOne({ where: { user_id: userId } });
-            if (!teacher) {
+            // Get ALL teachers untuk user ini (bisa punya multiple subjects)
+            const teachers = await Teacher.findAll({
+                where: { user_id: userId }
+            });
+
+            if (teachers.length === 0) {
                 return res.status(404).json({
                     success: false,
                     message: "Data guru tidak ditemukan untuk user ini."
                 });
             }
-            includeClause[0].where = { teacher_id: teacher.id };
-            includeClause[0].required = true;
+
+            const teacherIds = teachers.map(t => t.id);
+
+            // Get all material_ids yang dibuat oleh semua teacher records ini
+            const materials = await LearningMaterials.findAll({
+                where: { teacher_id: { [Op.in]: teacherIds } },
+                attributes: ["id"]
+            });
+
+            const materialIds = materials.map(m => m.id);
+
+            if (materialIds.length === 0) {
+                return res.json({
+                    success: true,
+                    role: role.role_name,
+                    message: "Belum ada materi yang dibuat",
+                    pagination: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0
+                    },
+                    data: []
+                });
+            }
+
+            // Filter assignments berdasarkan material_ids
+            whereCondition.material_id = { [Op.in]: materialIds };
+
         } else if (role.role_name === "Siswa") {
             whereCondition.user_id = userId;
         }
+        // Admin dapat mengakses semua data tanpa filter tambahan
+
+        // Fetch data with pagination
         const { rows, count } = await Assign.findAndCountAll({
             where: whereCondition,
             include: includeClause,
@@ -121,8 +168,6 @@ const GetAllAssign = async (req, res) => {
         });
     }
 };
-
-
 const GetAssignByUser = async (req, res) => {
     try {
         const userId = req.user.id;

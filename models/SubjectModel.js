@@ -3,9 +3,9 @@ const Db = require("../config/db")
 
 const Subject = Db.define("subject", {
     id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
     subject_name: {
         type: DataTypes.STRING

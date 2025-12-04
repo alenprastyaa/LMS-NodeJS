@@ -5,15 +5,15 @@ const discussionForumController = require("../controllers/DiscussionForumControl
 const discussionPostController = require("../controllers/DiscussionPostController");
 
 router.post("/classes/discussions", verifyToken, AuthMiddleares, GuruOnly, discussionForumController.createDiscussion);
-router.get("/materials/:materialId/discussions-material", AuthMiddleares, discussionForumController.getDiscussionsByMaterial);
-router.get("/classes/:classId/discussions", AuthMiddleares, discussionForumController.getDiscussionsByClass);
-router.get("/discussions/:id", AuthMiddleares, discussionForumController.getDiscussionById);
-router.put("/discussions/:id", AuthMiddleares, GuruOnly, discussionForumController.updateDiscussion);
-router.delete("/discussions/:id", AuthMiddleares, GuruOnly, discussionForumController.deleteDiscussion);
-router.post("/discussions/:discussionId/posts", AuthMiddleares, discussionPostController.createPost);
-router.put("/posts/:postId", AuthMiddleares, discussionPostController.updatePost);
-router.delete("/posts/:postId", AuthMiddleares, discussionPostController.deletePost);
-router.get("/discusion/my/disc", AuthMiddleares, discussionForumController.getMyDiscusion);
-router.get("/discusion", verifyToken, AuthMiddleares, discussionForumController.getAllDiscussions)
+router.get("/materials/:materialId/discussions-material", verifyToken, AuthMiddleares, discussionForumController.getDiscussionsByMaterial);
+router.get("/classes/:classId/discussions", verifyToken, AuthMiddleares, discussionForumController.getDiscussionsByClass);
+router.get("/discussions/:id", verifyToken, AuthMiddleares, discussionForumController.getDiscussionById);
+router.put("/discussions/:id", verifyToken, AuthMiddleares, GuruOnly, discussionForumController.updateDiscussion);
+router.delete("/discussions/:id", verifyToken, AuthMiddleares, GuruOnly, discussionForumController.deleteDiscussion);
+router.post("/discussions/:discussionId/posts", verifyToken, AuthMiddleares, discussionPostController.createPost);
+router.put("/posts/:postId", verifyToken, AuthMiddleares, discussionPostController.updatePost);
+router.delete("/posts/:postId", verifyToken, AuthMiddleares, discussionPostController.deletePost);
+router.get("/discusion/my/disc", verifyToken, AuthMiddleares, discussionForumController.getMyDiscusion);
+router.get("/discusion", verifyToken, verifyToken, AuthMiddleares, discussionForumController.getAllDiscussions)
 
 module.exports = router;

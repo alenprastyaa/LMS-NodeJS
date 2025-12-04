@@ -7,19 +7,38 @@ const createPost = async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role.role_name;
 
-        const discussion = await DiscussionForum.findByPk(discussionId);
+        const discussion = await DiscussionForum.findByPk(discussionId, {
+            include: [{ association: "teacher_class", include: ["teacher"] }],
+        });
+
         if (!discussion) {
-            return res.status(404).json({ success: false, message: "Diskusi tidak ditemukan" });
+            return res.status(404).json({
+                success: false,
+                message: "Diskusi tidak ditemukan",
+            });
         }
 
         let canPost = false;
+
         if (userRole === "Guru") {
-            const teacher = await Teacher.findOne({ where: { user_id: userId } });
-            if (teacher && discussion.teacher_id === teacher.id) { // Only if the teacher created this specific discussion
-                canPost = true;
+            const teacher = await Teacher.findOne({
+                where: { user_id: userId },
+            });
+
+            if (teacher) {
+                const isDiscussionOwner =
+                    discussion.teacher_class &&
+                    discussion.teacher_class.teacher_id === teacher.id;
+
+                if (isDiscussionOwner) {
+                    canPost = true;
+                }
             }
         } else if (userRole === "Siswa") {
-            const student = await Students.findOne({ where: { user_id: userId } });
+            const student = await User.findOne({
+                where: { id: userId },
+            });
+
             if (student && student.class_id === discussion.class_id) {
                 canPost = true;
             }
@@ -28,22 +47,30 @@ const createPost = async (req, res) => {
         }
 
         if (!canPost) {
-            return res.status(403).json({ success: false, message: "Anda tidak memiliki izin untuk memposting di diskusi ini" });
+            return res.status(403).json({
+                success: false,
+                message: "Anda tidak memiliki izin untuk memposting di diskusi ini",
+            });
         }
-
         const newPost = await DiscussionPost.create({
             discussion_id: discussionId,
             user_id: userId,
             content,
         });
 
-        res.status(201).json({ success: true, message: "Postingan berhasil dibuat", data: newPost });
+        res.status(201).json({
+            success: true,
+            message: "Postingan berhasil dibuat",
+            data: newPost,
+        });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: "Server error" });
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
     }
 };
-
 const updatePost = async (req, res) => {
     try {
         const { postId } = req.params;

@@ -4,18 +4,22 @@ const Teacher = require("./Teacher");
 const Class = require("./Class");
 
 const TeacherClass = sequelize.define("teacher_class", {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     teacher_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
+        allowNull: false,
         references: {
             model: Teacher,
             key: "id"
         }
     },
-
     class_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
+        allowNull: false,
         references: {
             model: Class,
             key: "id"
@@ -27,9 +31,27 @@ const TeacherClass = sequelize.define("teacher_class", {
 });
 
 
+TeacherClass.belongsTo(Teacher, {
+    foreignKey: "teacher_id",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE"
+});
+Teacher.hasMany(TeacherClass, {
+    foreignKey: "teacher_id",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE"
+});
 
-TeacherClass.belongsTo(Class, { foreignKey: "teacher_id" })
-Class.hasMany(TeacherClass, { foreignKey: "teacher_id" })
+TeacherClass.belongsTo(Class, {
+    foreignKey: "class_id",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE"
+});
+Class.hasMany(TeacherClass, {
+    foreignKey: "class_id",
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE"
+});
 
 
 module.exports = TeacherClass;

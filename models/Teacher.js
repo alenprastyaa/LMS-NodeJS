@@ -3,19 +3,19 @@ const db = require("../config/db")
 
 const Teacher = db.define("teacher", {
     id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false
     },
     subject_type: {
-        type: DataTypes.INTEGER
+        type: DataTypes.UUID,
     },
     class_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: true
     }
 

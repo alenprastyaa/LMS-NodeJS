@@ -6,20 +6,20 @@ const TeacherClass = require("./TeacherClass");
 
 const DiscussionForum = sequelize.define("discussion_forums", {
     id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
     class_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: Class,
             key: "id"
         }
     },
-    teacher_id: {
-        type: DataTypes.INTEGER,
+    teacher_class_id: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: TeacherClass,
@@ -49,8 +49,8 @@ const DiscussionForum = sequelize.define("discussion_forums", {
 DiscussionForum.belongsTo(Class, { foreignKey: 'class_id' });
 Class.hasMany(DiscussionForum, { foreignKey: 'class_id' });
 
-DiscussionForum.belongsTo(TeacherClass, { foreignKey: 'teacher_id' });
-TeacherClass.hasMany(DiscussionForum, { foreignKey: 'teacher_id' });
+DiscussionForum.belongsTo(TeacherClass, { foreignKey: 'teacher_class_id' });
+TeacherClass.hasMany(DiscussionForum, { foreignKey: 'teacher_class_id' });
 
 
 module.exports = DiscussionForum;

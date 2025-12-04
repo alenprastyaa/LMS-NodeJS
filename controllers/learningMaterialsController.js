@@ -1,22 +1,38 @@
 const { LearningMaterials, Teacher, Class, User, Role, Students, TeacherClass, Subject } = require("../models");
 const { Op } = require("sequelize");
 
-
 const getAllLearningMaterials = async (req, res) => {
     try {
         const { role } = req.user;
         const userId = req.user.id;
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
         const search = req.query.search || "";
-        const teacher = await Teacher.findOne({ where: { user_id: userId } });
-        const student = await Students.findOne({ where: { user_id: userId } });
+
+        const userData = await User.findOne({
+            where: { id: userId },
+            attributes: ["id", "username", "email", "class_id"]
+        });
+
+        // =====================
+        //         SISWA
+        // =====================
         if (role.role_name === "Siswa") {
+
+            if (!userData.class_id) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Siswa belum memiliki class_id"
+                });
+            }
+
             const whereCondition = {
-                class_id: student.class_id,
+                class_id: userData.class_id,
                 title: { [Op.like]: `%${search}%` }
             };
+
             const { rows, count } = await LearningMaterials.findAndCountAll({
                 where: whereCondition,
                 include: [
@@ -25,7 +41,7 @@ const getAllLearningMaterials = async (req, res) => {
                         as: "teacher",
                         attributes: ["subject_type"],
                         include: [
-                            { model: User, attributes: ["id", "username", "email"] },
+                            { model: User, attributes: ["id", "username", "email", "class_id"] },
                             { model: Subject, attributes: ["subject_name"] }
                         ]
                     }
@@ -49,25 +65,32 @@ const getAllLearningMaterials = async (req, res) => {
             });
         }
         if (role.role_name === "Guru") {
+            const teacherRecords = await Teacher.findAll({
+                where: { user_id: userId }
+            });
+            const teacherIds = teacherRecords.map(t => t.id);
             const whereCondition = {
-                teacher_id: teacher.id,
+                teacher_id: { [Op.in]: teacherIds },
                 title: { [Op.like]: `%${search}%` }
             };
-
             const { rows, count } = await LearningMaterials.findAndCountAll({
-                where: whereCondition,
                 include: [
                     {
                         model: Teacher,
                         as: "teacher",
+                        where: { user_id: userId },
                         attributes: ["id", "subject_type"],
                         include: [{ model: User, attributes: ["id", "username", "email"] }]
                     }
                 ],
+                where: {
+                    title: { [Op.like]: `%${search}%` }
+                },
                 order: [["createdAt", "DESC"]],
                 limit,
                 offset
             });
+
 
             return res.json({
                 success: true,
@@ -122,6 +145,7 @@ const getAllLearningMaterials = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
 
 
 const getLearningMaterialsByClass = async (req, res) => {
@@ -391,19 +415,19 @@ const updateLearningMaterial = async (req, res) => {
     }
 };
 
-
 const deleteLearningMaterial = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const { role } = req.user
+        const { role } = req.user;
 
         const material = await LearningMaterials.findOne({
             where: { id },
             include: [
                 {
                     model: Teacher,
-                    as: "teacher"
+                    as: "teacher",
+                    attributes: ["id", "user_id"]
                 }
             ]
         });
@@ -414,33 +438,49 @@ const deleteLearningMaterial = async (req, res) => {
                 message: "Learning material tidak ditemukan"
             });
         }
+
+        // Admin boleh hapus apa saja
         if (role.role_name === "Admin") {
             await material.destroy();
-            res.json({
+            return res.json({
                 success: true,
                 message: "Learning material berhasil dihapus"
             });
         }
+
+        // Ambil teacher milik user login
         const teacher = await Teacher.findOne({
             where: { user_id: userId }
         });
-        if (!teacher || material.teacher.id !== teacher.id) {
+
+        if (!teacher) {
+            return res.status(403).json({
+                success: false,
+                message: "Role Anda bukan guru"
+            });
+        }
+
+        // Cek kepemilikan berdasarkan user — paling aman
+        if (material.teacher.user_id !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Anda tidak memiliki izin untuk menghapus materi ini"
             });
         }
+
         await material.destroy();
 
-        res.json({
+        return res.json({
             success: true,
             message: "Learning material berhasil dihapus"
         });
+
     } catch (error) {
         console.error("Error deleting learning material:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
 
 const getMyLearningMaterials = async (req, res) => {
     try {

@@ -3,8 +3,13 @@ const Db = require('../config/db')
 
 
 const Question = Db.define("question", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     teacher_id: {
-        type: DataTypes.INTEGER
+        type: DataTypes.UUID,
     },
     question_name: {
         type: DataTypes.STRING

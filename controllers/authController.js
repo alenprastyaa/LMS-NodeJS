@@ -5,10 +5,11 @@ const { User, Role, Students } = require("../models"); // Import Students model
 const Class = require("../models/Class");
 require("dotenv").config();
 const { Op } = require("sequelize");
+const XLSX = require("xlsx");
 
 const register = async (req, res) => {
     try {
-        const { username, password, email, role_id, status, full_name } = req.body;
+        const { username, password, email, role_id, class_id, status, full_name, parent_email, parent_contact } = req.body;
         if (!username || !password || !email || !role_id) {
             return res.status(400).json({ success: false, message: "username, password, email and role are required" });
         }
@@ -16,13 +17,15 @@ const register = async (req, res) => {
         if (!role) return res.status(400).json({ success: false, message: "Invalid role" });
         const exists = await User.findOne({ where: { username } });
         if (exists) return res.status(409).json({ success: false, message: "Username or email already used" });
-
         const hashed = await bcrypt.hash(password, 10);
         const user = await User.create({
             username,
             password: hashed,
+            parent_email,
+            parent_contact,
             email,
             role_id,
+            class_id,
             status,
             full_name
         });
@@ -51,11 +54,7 @@ const login = async (req, res) => {
                     model: Role,
                     attributes: ["id", "role_name"]
                 },
-                {
-                    model: Students,
-                    attributes: ["class_id"],
-                    required: false
-                }
+
             ]
         });
 
@@ -81,7 +80,8 @@ const login = async (req, res) => {
         const payload = {
             id: user.id,
             email: user.email,
-            role: user.role
+            role: user.role,
+            class_id: user.class_id,
         };
 
         const token = jwt.sign(
@@ -91,15 +91,12 @@ const login = async (req, res) => {
         );
         const { password: _p, ...safe } = user.toJSON();
 
-        let class_id = null;
-        if (user.Role && user.Role.role_name === "Siswa" && user.Student) {
-            class_id = user.Student.class_id;
-        }
+
 
         res.json({
             success: true,
             token,
-            data: { ...safe, class_id }
+            data: { ...safe }
         });
 
     } catch (err) {
@@ -113,16 +110,19 @@ const login = async (req, res) => {
 
 
 
-
 const GetUser = async (req, res) => {
     try {
         const {
             page = 1,
             limit = 10,
-            search = ""
+            search = "",
+            role_name = ""
         } = req.query;
 
-        const offset = (page - 1) * limit;
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 10;
+        const offset = (pageNum - 1) * limitNum;
+
         const where = {};
         if (search) {
             where[Op.or] = [
@@ -132,15 +132,20 @@ const GetUser = async (req, res) => {
                 { "$role.role_name$": { [Op.like]: `%${search}%` } }
             ];
         }
+        const roleInclude = {
+            model: Role,
+            attributes: ["role_name"]
+        };
+        if (role_name) {
+            roleInclude.where = { role_name: { [Op.like]: `%${role_name}%` } };
+            roleInclude.required = true;
+        }
 
         const { rows, count } = await User.findAndCountAll({
             where,
-            include: {
-                model: Role,
-                attributes: ["role_name"]
-            },
-            limit: parseInt(limit),
-            offset: parseInt(offset),
+            include: roleInclude,
+            limit: limitNum,
+            offset,
             order: [["id", "DESC"]],
             distinct: true
         });
@@ -151,6 +156,9 @@ const GetUser = async (req, res) => {
             email: u.email,
             status: u.status,
             full_name: u.full_name,
+            class_id: u.class_id,
+            parent_email: u.parent_email,
+            parent_contact: u.parent_contact,
             role_name: u.role?.role_name || null
         }));
 
@@ -159,9 +167,9 @@ const GetUser = async (req, res) => {
             data: result,
             pagination: {
                 total: count,
-                page: Number(page),
-                limit: Number(limit),
-                total_pages: Math.ceil(count / limit)
+                page: pageNum,
+                limit: limitNum,
+                total_pages: Math.ceil(count / limitNum)
             }
         });
 
@@ -172,6 +180,7 @@ const GetUser = async (req, res) => {
         });
     }
 };
+
 
 
 
@@ -229,4 +238,129 @@ const UpdateUser = async (req, res) => {
     }
 
 }
-module.exports = { register, login, GetUser, GetMyData, UpdateUser };
+const GenerateUserExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "Upload file Excel" });
+        }
+
+        const fileBuffer = req.file.buffer;
+        const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const excelData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (excelData.length === 0) {
+            return res.status(400).json({ success: false, message: "Excel kosong" });
+        }
+
+        const createdUsers = [];
+        const failedUsers = [];
+
+        for (const row of excelData) {
+            try {
+                const {
+                    username,
+                    parent_email,
+                    parent_contact,
+                    email,
+                    password,
+                    full_name,
+                    role_id,
+                    class_id,
+                    status = "active"
+                } = row;
+
+                if (!username || !password || !email || !role_id) {
+                    failedUsers.push({
+                        row: row,
+                        error: "username, password, email dan role_id wajib"
+                    });
+                    continue;
+                }
+                const role = await Role.findByPk(role_id);
+                if (!role) {
+                    failedUsers.push({
+                        row,
+                        error: "role_id tidak valid"
+                    });
+                    continue;
+                }
+                const exists = await User.findOne({
+                    where: {
+                        [Op.or]: [
+                            { username },
+                            { email }
+                        ]
+                    }
+                });
+
+                if (exists) {
+                    failedUsers.push({
+                        row,
+                        error: "Username atau email sudah digunakan"
+                    });
+                    continue;
+                }
+
+                const hashed = await bcrypt.hash(String(password), 10);
+                const newUser = await User.create({
+                    username,
+                    email,
+                    password: hashed,
+                    full_name,
+                    parent_email,
+                    parent_contact,
+                    role_id,
+                    class_id,
+                    status
+                });
+
+                createdUsers.push(newUser);
+            } catch (err) {
+                failedUsers.push({
+                    row,
+                    error: err.message
+                });
+            }
+        }
+
+        return res.json({
+            success: true,
+            created: createdUsers.length,
+            failed: failedUsers.length,
+            createdUsers,
+            failedUsers
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+const DeleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByPk(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User tidak ditemukan"
+            });
+        }
+        await User.destroy({ where: { id } });
+
+        return res.json({
+            success: true,
+            message: "User berhasil dihapus"
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+module.exports = { register, login, GetUser, GetMyData, UpdateUser, GenerateUserExcel, DeleteUser };

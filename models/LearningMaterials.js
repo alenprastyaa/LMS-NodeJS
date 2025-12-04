@@ -5,12 +5,12 @@ const Class = require("./Class");
 
 const LearningMaterials = DB.define("learning_material", {
     id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
     teacher_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: Teacher,
@@ -18,8 +18,8 @@ const LearningMaterials = DB.define("learning_material", {
         }
     },
     class_id: {
-        type: DataTypes.INTEGER,
-        // allowNull: false,
+        type: DataTypes.UUID,
+        allowNull: false,
         references: {
             model: Class,
             key: "id"

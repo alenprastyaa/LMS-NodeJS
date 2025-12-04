@@ -4,17 +4,20 @@ const User = require("./User");
 const Class = require("./Class");
 
 const Students = sequelize.define("students", {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     class_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         references: {
             model: Class,
             key: "id"
         }
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         references: {
             model: User,
             key: "id"
